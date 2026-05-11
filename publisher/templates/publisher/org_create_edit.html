@@ -1,0 +1,39 @@
+{% extends "publisher/base.html" %}
+{% block title %}{{ title }} — OnePulse{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'org_list' %}" class="btn btn-secondary">← Back to Organizations</a>
+{% endblock %}
+{% block content %}
+<div style="max-width:560px">
+  <div class="card">
+    <div class="card-header"><h2>{{ title }}</h2></div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="form-grid">
+          <div class="form-group {% if form.name.errors %}field-error{% endif %}">
+            <label for="{{ form.name.id_for_label }}">Organization Name</label>
+            {{ form.name }}
+            <div class="form-hint">The full display name, e.g. "KTV Creations" or "VAOne Agency".</div>
+            {% if form.name.errors %}<ul class="errorlist">{% for e in form.name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+          </div>
+          <div class="form-group {% if form.slug.errors %}field-error{% endif %}">
+            <label for="{{ form.slug.id_for_label }}">Slug</label>
+            {{ form.slug }}
+            <div class="form-hint">URL-safe identifier, lowercase with hyphens. e.g. <em>ktv-creations</em></div>
+            {% if form.slug.errors %}<ul class="errorlist">{% for e in form.slug.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save Organization</button>
+            <a href="{% url 'org_list' %}" class="btn btn-secondary">Cancel</a>
+            {% if org %}
+            <a href="{% url 'org_delete' org.pk %}" class="btn btn-danger" style="margin-left:auto">Delete</a>
+            {% endif %}
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

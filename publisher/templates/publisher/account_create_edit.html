@@ -1,0 +1,302 @@
+{% extends "publisher/base.html" %}
+{% block title %}{{ title }} — OnePulse{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'account_list' %}" class="btn btn-secondary">← Back to Accounts</a>
+{% endblock %}
+{% block content %}
+<style>
+.perm-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 500;
+  font-family: 'DM Mono', monospace;
+  background: rgba(13,27,42,0.06);
+  color: var(--navy-mid);
+  border: 1px solid rgba(13,27,42,0.1);
+  margin: 2px;
+}
+.token-wrap { position: relative; }
+.token-wrap input { padding-right: 58px; font-family: monospace; font-size: 12px; letter-spacing: 0.03em; }
+.token-show-btn {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  font-size: 10px; font-weight: 600; letter-spacing: 1px;
+  color: var(--gold); background: none; border: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+.ig-setup-box {
+  background: linear-gradient(135deg, rgba(225,48,108,0.04), rgba(131,58,180,0.04));
+  border: 1px solid rgba(225,48,108,0.15);
+  border-radius: 8px;
+  padding: 18px 20px;
+}
+.fb-setup-box {
+  background: rgba(24,119,242,0.04);
+  border: 1px solid rgba(24,119,242,0.15);
+  border-radius: 8px;
+  padding: 18px 20px;
+}
+.setup-step {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.setup-step:last-child { border-bottom: none; padding-bottom: 0; }
+.step-num {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: var(--gold-light);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.setup-step a { color: var(--gold); }
+.field-secret input { font-family: monospace; font-size: 12px; }
+</style>
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:20px;max-width:1000px;align-items:start">
+
+  <!-- FORM -->
+  <div>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if platform == 'instagram' %}
+      <input type="hidden" name="platform" value="instagram">
+      {% elif platform == 'facebook' %}
+      <input type="hidden" name="platform" value="facebook">
+      {% endif %}
+
+      <!-- ORG + IDENTITY -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          <h2>
+            {% if platform == 'instagram' %}📸 Instagram Business Account
+            {% elif platform == 'facebook' %}📘 Facebook Page
+            {% elif platform == 'twitter' %}🐦 Twitter / X Account
+            {% elif platform == 'linkedin' %}💼 LinkedIn Account
+            {% elif platform == 'tiktok' %}🎵 TikTok Business Account
+            {% else %}Social Account{% endif %}
+          </h2>
+          {% if account %}<span class="badge badge-{{ account.status }}">{{ account.get_status_display }}</span>{% endif %}
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div class="form-group {% if form.organization.errors %}field-error{% endif %}">
+              <label>Organization</label>
+              {{ form.organization }}
+              {% if form.organization.errors %}<ul class="errorlist">{% for e in form.organization.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+
+            {% if form.platform %}
+            <div class="form-group">
+              <label>Platform</label>
+              {{ form.platform }}
+            </div>
+            {% endif %}
+
+            <div class="form-row-2">
+              <div class="form-group {% if form.account_name.errors %}field-error{% endif %}">
+                <label>Account Name / Handle</label>
+                {{ form.account_name }}
+                {% if form.account_name.errors %}<ul class="errorlist">{% for e in form.account_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+              </div>
+              <div class="form-group {% if form.account_id.errors %}field-error{% endif %}">
+                <label>Platform Account ID</label>
+                {{ form.account_id }}
+                <div class="form-hint">Numeric ID from the platform dashboard.</div>
+                {% if form.account_id.errors %}<ul class="errorlist">{% for e in form.account_id.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- APP CREDENTIALS (IG + FB) -->
+      {% if platform == 'instagram' or platform == 'facebook' %}
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><h2>App Credentials</h2></div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div class="form-row-2">
+              <div class="form-group {% if form.app_id.errors %}field-error{% endif %}">
+                <label>App ID</label>
+                {{ form.app_id }}
+                <div class="form-hint">From Meta for Developers → Your App → Settings → Basic</div>
+                {% if form.app_id.errors %}<ul class="errorlist">{% for e in form.app_id.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+              </div>
+              <div class="form-group field-secret {% if form.app_secret.errors %}field-error{% endif %}">
+                <label>App Secret</label>
+                <div class="token-wrap">
+                  {{ form.app_secret }}
+                  <button type="button" class="token-show-btn" onclick="toggleField(this)">SHOW</button>
+                </div>
+                <div class="form-hint">Keep private. Never share or commit to git.</div>
+                {% if form.app_secret.errors %}<ul class="errorlist">{% for e in form.app_secret.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+              </div>
+            </div>
+            {% if platform == 'instagram' %}
+            <div class="form-row-2">
+              <div class="form-group {% if form.page_id.errors %}field-error{% endif %}">
+                <label>Facebook Page ID</label>
+                {{ form.page_id }}
+                <div class="form-hint">Required — Instagram Business must be linked to a Facebook Page.</div>
+                {% if form.page_id.errors %}<ul class="errorlist">{% for e in form.page_id.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+              </div>
+              <div class="form-group {% if form.ig_business_account_id.errors %}field-error{% endif %}">
+                <label>IG Business Account ID</label>
+                {{ form.ig_business_account_id }}
+                <div class="form-hint">From Meta Business Suite → Instagram → Account Info.</div>
+                {% if form.ig_business_account_id.errors %}<ul class="errorlist">{% for e in form.ig_business_account_id.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+              </div>
+            </div>
+            {% else %}
+            <div class="form-group {% if form.page_id.errors %}field-error{% endif %}">
+              <label>Facebook Page ID</label>
+              {{ form.page_id }}
+              {% if form.page_id.errors %}<ul class="errorlist">{% for e in form.page_id.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- ACCESS TOKEN -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><h2>Access Token</h2></div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div class="form-group {% if form.access_token.errors %}field-error{% endif %}">
+              <label>
+                {% if platform == 'instagram' or platform == 'facebook' %}User / Page Access Token
+                {% else %}Access Token{% endif %}
+              </label>
+              <div class="token-wrap">
+                {{ form.access_token }}
+                <button type="button" class="token-show-btn" onclick="toggleField(this)">SHOW</button>
+              </div>
+              <div class="form-hint">
+                {% if platform == 'instagram' %}Obtain from Meta for Developers → Instagram API → API Setup → Generate Token. Tokens expire — use long-lived tokens for production.
+                {% elif platform == 'facebook' %}Page access token from Meta Business Suite or Graph API Explorer.
+                {% else %}From your platform's developer console.{% endif %}
+              </div>
+              {% if form.access_token.errors %}<ul class="errorlist">{% for e in form.access_token.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+
+            {% if form.permissions_granted %}
+            <div class="form-group {% if form.permissions_granted.errors %}field-error{% endif %}">
+              <label>Permissions Granted</label>
+              {{ form.permissions_granted }}
+              <div class="form-hint">Comma-separated list of approved scopes from your Meta App → Permissions and Features page.</div>
+              {% if form.permissions_granted.errors %}<ul class="errorlist">{% for e in form.permissions_granted.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+              <label>Connection Status</label>
+              {{ form.status }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center">
+        <button type="submit" class="btn btn-primary">Save Account</button>
+        <a href="{% url 'account_list' %}" class="btn btn-secondary">Cancel</a>
+        {% if account %}
+        <a href="{% url 'account_delete' account.pk %}" class="btn btn-danger" style="margin-left:auto">Disconnect</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- SETUP GUIDE SIDEBAR -->
+  <div>
+    {% if platform == 'instagram' %}
+    <div class="card">
+      <div class="card-header"><h2>Instagram Setup Guide</h2></div>
+      <div class="card-body" style="padding:16px">
+        <div class="ig-setup-box" style="margin-bottom:16px">
+          <div style="font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#E1306C;margin-bottom:10px">App: OnePulse Social Publisher-IG</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">App ID</div>
+          <div style="font-family:monospace;font-size:12px;color:var(--navy);font-weight:500;margin-bottom:10px">2460738144394548</div>
+          <div style="font-size:11px;color:var(--text-muted)">Use this App ID in the field to the left.</div>
+        </div>
+        <div style="font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Step by Step</div>
+        <div class="setup-step"><span class="step-num">1</span><div>Go to <a href="https://developers.facebook.com" target="_blank">developers.facebook.com</a> and open your app <strong>OnePulse Social Publisher-IG</strong></div></div>
+        <div class="setup-step"><span class="step-num">2</span><div>Under <strong>Use Cases → Instagram → API Setup</strong>, generate a User Token with the required permissions below.</div></div>
+        <div class="setup-step"><span class="step-num">3</span><div>Get your <strong>Instagram Business Account ID</strong> from Meta Business Suite → Instagram → Account Info, or via the Graph API: <code style="font-size:10px;background:rgba(0,0,0,0.05);padding:2px 5px;border-radius:3px">GET /me?fields=instagram_business_account</code></div></div>
+        <div class="setup-step"><span class="step-num">4</span><div>Get your <strong>Facebook Page ID</strong> from Business Suite → Pages, or the Graph API response above.</div></div>
+        <div class="setup-step"><span class="step-num">5</span><div>For production, <a href="https://developers.facebook.com/docs/facebook-login/access-tokens/refreshing" target="_blank">exchange for a long-lived token</a> (60-day expiry) using your App Secret.</div></div>
+
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <div style="font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Required Permissions</div>
+          <span class="perm-pill">instagram_basic</span>
+          <span class="perm-pill">instagram_content_publish</span>
+          <span class="perm-pill">pages_read_engagement</span>
+          <span class="perm-pill">business_management</span>
+          <span class="perm-pill">pages_show_list</span>
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">For Messaging</div>
+          <span class="perm-pill">instagram_manage_messages</span>
+        </div>
+        <div style="margin-top:14px">
+          <a href="https://developers.facebook.com/docs/instagram-platform/" target="_blank" class="btn btn-secondary btn-sm" style="width:100%;justify-content:center">📖 Instagram API Docs</a>
+        </div>
+      </div>
+    </div>
+
+    {% elif platform == 'facebook' %}
+    <div class="card">
+      <div class="card-header"><h2>Facebook Page Setup</h2></div>
+      <div class="card-body" style="padding:16px">
+        <div class="fb-setup-box" style="margin-bottom:14px">
+          <div style="font-size:11px;color:var(--text-muted)">Use the same Meta App credentials if connecting a Facebook Page alongside an Instagram account.</div>
+        </div>
+        <div class="setup-step"><span class="step-num">1</span><div>In <a href="https://developers.facebook.com" target="_blank">Meta for Developers</a>, select your app and go to <strong>Tools → Graph API Explorer</strong>.</div></div>
+        <div class="setup-step"><span class="step-num">2</span><div>Generate a <strong>Page Access Token</strong> by selecting your Page from the dropdown.</div></div>
+        <div class="setup-step"><span class="step-num">3</span><div>Find your <strong>Page ID</strong> in Business Suite → Pages → Page Info.</div></div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Required Permissions</div>
+          <span class="perm-pill">pages_manage_posts</span>
+          <span class="perm-pill">pages_read_engagement</span>
+          <span class="perm-pill">pages_show_list</span>
+          <span class="perm-pill">business_management</span>
+        </div>
+      </div>
+    </div>
+
+    {% else %}
+    <div class="card">
+      <div class="card-header"><h2>General Setup Notes</h2></div>
+      <div class="card-body" style="padding:16px;font-size:12px;color:var(--text-muted);line-height:1.8">
+        <p>Obtain your access token from the platform's developer console or OAuth flow. Tokens should be stored securely and rotated regularly.</p>
+        <p style="margin-top:10px">The <strong>Account ID</strong> is the unique numeric or alphanumeric identifier assigned by the platform to your user or page.</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<script>
+function toggleField(btn) {
+  const input = btn.previousElementSibling || btn.closest('.token-wrap').querySelector('input');
+  // find sibling input inside token-wrap
+  const wrap = btn.closest('.token-wrap');
+  const inp = wrap.querySelector('input');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'HIDE'; }
+  else { inp.type = 'password'; btn.textContent = 'SHOW'; }
+}
+</script>
+{% endblock %}

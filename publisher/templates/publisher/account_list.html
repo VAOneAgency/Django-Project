@@ -1,0 +1,159 @@
+{% extends "publisher/base.html" %}
+{% block title %}Social Accounts — OnePulse{% endblock %}
+{% block page_title %}Social Accounts{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'account_connect_choose' %}" class="btn btn-primary">+ Connect Account</a>
+{% endblock %}
+{% block content %}
+<style>
+.test-result {
+  display:none;
+  font-size:11px;
+  padding:3px 9px;
+  border-radius:100px;
+  font-weight:500;
+  white-space:nowrap;
+}
+.test-result.ok { display:inline; background:rgba(26,107,60,0.1); color:#1A6B3C; }
+.test-result.fail { display:inline; background:rgba(192,57,43,0.1); color:#C0392B; }
+.test-result.testing { display:inline; background:rgba(138,155,176,0.12); color:var(--steel); }
+</style>
+
+<div class="card">
+  <div style="padding:0">
+    {% if accounts %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Platform</th>
+            <th>Handle / Name</th>
+            <th>Organization</th>
+            <th>IDs</th>
+            <th>Status</th>
+            <th>Connection</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for acct in accounts %}
+        <tr id="acct-row-{{ acct.pk }}">
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:17px">
+                {% if acct.platform == 'instagram' %}📸
+                {% elif acct.platform == 'facebook' %}📘
+                {% elif acct.platform == 'twitter' %}🐦
+                {% elif acct.platform == 'linkedin' %}💼
+                {% elif acct.platform == 'tiktok' %}🎵
+                {% else %}📱{% endif %}
+              </span>
+              <span style="font-weight:500;color:var(--text-primary)">{{ acct.get_platform_display }}</span>
+            </div>
+          </td>
+          <td style="color:var(--text-secondary)">{{ acct.account_name|default:"—" }}</td>
+          <td>{{ acct.organization.name }}</td>
+          <td style="font-size:11px;font-family:monospace;color:var(--text-muted);line-height:1.7">
+            {% if acct.page_id %}<div title="Facebook Page ID">Page: {{ acct.page_id }}</div>{% endif %}
+            {% if acct.ig_business_account_id %}<div title="IG Business ID">IG: {{ acct.ig_business_account_id }}</div>{% endif %}
+            {% if not acct.page_id and not acct.ig_business_account_id %}{{ acct.account_id|default:"—" }}{% endif %}
+          </td>
+          <td>
+            <span class="badge {% if acct.status == 'active' %}badge-published{% elif acct.status == 'expired' %}badge-failed{% else %}badge-draft{% endif %}">
+              {{ acct.get_status_display }}
+            </span>
+          </td>
+          <td>
+            {% if acct.platform == 'instagram' or acct.platform == 'facebook' %}
+            <button type="button"
+                    class="btn btn-secondary btn-sm"
+                    onclick="testConnection({{ acct.pk }}, this)"
+                    data-pk="{{ acct.pk }}">
+              Test API
+            </button>
+            <span class="test-result" id="test-result-{{ acct.pk }}"></span>
+            {% else %}
+            <span style="color:var(--text-muted);font-size:11px">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px">
+              <a href="{% url 'account_edit' acct.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+              <a href="{% url 'account_delete' acct.pk %}" class="btn btn-danger btn-sm">Remove</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">⟳</div>
+      <p>No social accounts connected yet.<br><strong>Connect your first platform to start publishing.</strong></p>
+      <a href="{% url 'account_connect_choose' %}" class="btn btn-primary">+ Connect Account</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Test result detail panel -->
+<div id="test-detail-panel" style="display:none;margin-top:16px" class="card">
+  <div class="card-header"><h2 id="test-detail-title">Connection Test Result</h2></div>
+  <div class="card-body" id="test-detail-body" style="font-size:13px;color:var(--text-secondary)"></div>
+</div>
+
+<script>
+function testConnection(pk, btn) {
+  const resultEl = document.getElementById(`test-result-${pk}`);
+  const panel = document.getElementById('test-detail-panel');
+  const panelBody = document.getElementById('test-detail-body');
+  const panelTitle = document.getElementById('test-detail-title');
+
+  btn.disabled = true;
+  btn.textContent = 'Testing…';
+  resultEl.className = 'test-result testing';
+  resultEl.textContent = '⟳ Checking…';
+
+  fetch(`/accounts/${pk}/test/`, {
+    headers: {'X-Requested-With': 'XMLHttpRequest'}
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.disabled = false;
+    btn.textContent = 'Test API';
+
+    if (data.success) {
+      resultEl.className = 'test-result ok';
+      resultEl.textContent = '✓ Connected';
+      panelTitle.textContent = '✓ Connection Successful';
+      panelBody.innerHTML = `<p style="color:var(--success);font-weight:500;margin-bottom:12px">${data.message}</p>
+        ${data.details ? `<pre style="font-size:11px;background:var(--cream);padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap;border:1px solid var(--border)">${JSON.stringify(data.details, null, 2)}</pre>` : ''}`;
+    } else {
+      resultEl.className = 'test-result fail';
+      resultEl.textContent = '✕ Failed';
+      panelTitle.textContent = '✕ Connection Failed';
+      panelBody.innerHTML = `<p style="color:var(--danger);font-weight:500;margin-bottom:8px">Failed to connect</p>
+        <p style="font-size:12px;color:var(--text-muted)">${data.message}</p>
+        <div style="margin-top:12px;padding:10px 14px;background:rgba(192,57,43,0.05);border:1px solid rgba(192,57,43,0.15);border-radius:6px;font-size:12px">
+          <strong>Common causes:</strong><br>
+          • Token expired — generate a new one in Meta for Developers<br>
+          • Missing permissions — ensure all required scopes are approved<br>
+          • Account ID mismatch — double-check IG Business Account ID and Page ID<br>
+          • App not in Live mode — switch app to Live in Meta Dashboard
+        </div>`;
+    }
+    panel.style.display = 'block';
+    panel.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  })
+  .catch(err => {
+    btn.disabled = false;
+    btn.textContent = 'Test API';
+    resultEl.className = 'test-result fail';
+    resultEl.textContent = '✕ Error';
+    panelBody.innerHTML = `<p style="color:var(--danger)">Network error: ${err.message}</p>`;
+    panel.style.display = 'block';
+  });
+}
+</script>
+{% endblock %}

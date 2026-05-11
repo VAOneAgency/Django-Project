@@ -1,0 +1,60 @@
+{% extends "publisher/base.html" %}
+{% block title %}{{ title }} — OnePulse{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'staff_list' %}" class="btn btn-secondary">← Back to Staff</a>
+{% endblock %}
+{% block content %}
+<div style="max-width:600px">
+  <div class="card">
+    <div class="card-header"><h2>{{ title }}</h2></div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="form-grid">
+
+          <div class="form-group {% if form.email.errors %}field-error{% endif %}">
+            <label for="{{ form.email.id_for_label }}">Email Address</label>
+            {{ form.email }}
+            {% if form.email.errors %}<ul class="errorlist">{% for e in form.email.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+          </div>
+
+          <div class="form-section">
+            <div class="form-section-label">Password</div>
+            <div class="form-group">
+              <label for="id_password">Password{% if editing %} <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--text-muted)">(leave blank to keep current)</span>{% endif %}</label>
+              <div class="pw-wrap">
+                <input type="password" id="id_password" name="password" autocomplete="new-password" placeholder="{% if editing %}Leave blank to keep current{% else %}Enter password{% endif %}">
+                <button type="button" class="pw-toggle">👁</button>
+              </div>
+              <div class="pw-strength">
+                <div class="pw-strength-bar"></div>
+                <div class="pw-strength-bar"></div>
+                <div class="pw-strength-bar"></div>
+                <div class="pw-strength-bar"></div>
+              </div>
+              <button type="button" class="pw-generate" onclick="generatePassword('id_password')">⟳ Generate secure password</button>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="form-section-label">Permissions</div>
+            <div class="form-group">
+              <div class="form-check">
+                {{ form.is_admin }}
+                <label for="{{ form.is_admin.id_for_label }}">Administrator — can manage all organizations, accounts, and staff</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save Staff Member</button>
+            <a href="{% url 'staff_list' %}" class="btn btn-secondary">Cancel</a>
+          </div>
+
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends "publisher/base.html" %}
+{% block title %}Connect Social Account — OnePulse{% endblock %}
+{% block page_title %}Connect Social Account{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'account_list' %}" class="btn btn-secondary">← Back</a>
+{% endblock %}
+{% block content %}
+<style>
+.platform-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; max-width: 900px; }
+.platform-tile {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px 20px 20px;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.platform-tile::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--tile-color, var(--border));
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.platform-tile:hover { border-color: var(--tile-color); box-shadow: 0 4px 16px rgba(0,0,0,0.06); transform: translateY(-1px); }
+.platform-tile:hover::before { opacity: 1; }
+.tile-icon { font-size: 2rem; line-height: 1; }
+.tile-name { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; font-weight: 400; color: var(--navy); }
+.tile-desc { font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+.tile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 4px;
+  width: fit-content;
+}
+.tile-badge.required { background: rgba(192,57,43,0.08); color: #C0392B; }
+.tile-badge.optional { background: rgba(138,155,176,0.12); color: var(--steel); }
+.tile-badge.messaging { background: rgba(13,27,42,0.07); color: var(--navy-mid); }
+</style>
+
+<div style="margin-bottom:24px">
+  <div style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:300;color:var(--navy);margin-bottom:4px">Choose a platform to connect</div>
+  <p style="font-size:13px;color:var(--text-muted)">Select the platform you want to connect for this organization. Each platform has different credential requirements.</p>
+</div>
+
+<div class="platform-grid">
+
+  <a href="{% url 'account_create' %}?platform=instagram" class="platform-tile" style="--tile-color: #E1306C">
+    <div class="tile-icon">📸</div>
+    <div class="tile-name">Instagram</div>
+    <div class="tile-badge required">⚠ Visual Required</div>
+    <div class="tile-desc">Connect an Instagram Business or Creator account via the Meta API. Requires a linked Facebook Page and App credentials.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+      <span class="tile-badge optional">instagram_basic</span>
+      <span class="tile-badge optional">content_publishing</span>
+      <span class="tile-badge messaging">messages</span>
+    </div>
+  </a>
+
+  <a href="{% url 'account_create' %}?platform=facebook" class="platform-tile" style="--tile-color: #1877F2">
+    <div class="tile-icon">📘</div>
+    <div class="tile-name">Facebook</div>
+    <div class="tile-badge optional">Visual Optional</div>
+    <div class="tile-desc">Connect a Facebook Page to publish posts, images, and videos on behalf of a client or organization.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+      <span class="tile-badge optional">pages_manage_posts</span>
+      <span class="tile-badge optional">pages_read_engagement</span>
+    </div>
+  </a>
+
+  <a href="{% url 'account_create' %}?platform=twitter" class="platform-tile" style="--tile-color: #000000">
+    <div class="tile-icon">🐦</div>
+    <div class="tile-name">Twitter / X</div>
+    <div class="tile-badge optional">Visual Optional</div>
+    <div class="tile-desc">Connect a Twitter/X account using OAuth 2.0. Supports text posts with up to 4 images or 1 video.</div>
+  </a>
+
+  <a href="{% url 'account_create' %}?platform=linkedin" class="platform-tile" style="--tile-color: #0A66C2">
+    <div class="tile-icon">💼</div>
+    <div class="tile-name">LinkedIn</div>
+    <div class="tile-badge optional">Visual Optional</div>
+    <div class="tile-desc">Connect a LinkedIn personal profile or Company Page to publish professional content.</div>
+  </a>
+
+  <a href="{% url 'account_create' %}?platform=tiktok" class="platform-tile" style="--tile-color: #010101">
+    <div class="tile-icon">🎵</div>
+    <div class="tile-name">TikTok</div>
+    <div class="tile-badge required">⚠ Video Required</div>
+    <div class="tile-desc">Connect a TikTok Business account. All posts require a video file.</div>
+  </a>
+
+</div>
+{% endblock %}
