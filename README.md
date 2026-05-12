@@ -42,8 +42,8 @@ A multi-platform social media management tool built with Django. OnePulse lets t
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/yourusername/onepulse-social-publisher.git
-cd onepulse-social-publisher
+git clone https://github.com/VAOneAgency/Django-Project.git
+cd Django-Project.git
 ```
 
 2. **Create and activate a virtual environment**
