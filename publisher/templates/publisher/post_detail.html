@@ -1,0 +1,335 @@
+{% extends "publisher/base.html" %}
+{% load publisher_extras %}
+{% block title %}Post #{{ post.pk }} — OnePulse{% endblock %}
+{% block page_title %}Post #{{ post.pk }}{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'post_list' %}" class="btn btn-secondary">← Posts</a>
+  <a href="{% url 'post_edit' post.pk %}" class="btn btn-secondary">Edit Post</a>
+  {% if post.status == 'published' %}
+  <a href="{% url 'post_analytics' post.pk %}" class="btn btn-outline-gold">📊 Analytics</a>
+  {% endif %}
+  {% if post.status != 'published' %}
+  <form method="post" action="{% url 'post_publish_now' post.pk %}" style="display:inline" id="publishForm">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-gold" onclick="return confirmPublish(this)">
+      ▶ Publish Now
+    </button>
+  </form>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<style>
+.detail-row { display:flex;flex-direction:column;gap:3px;padding:12px 0;border-bottom:1px solid var(--border); }
+.detail-row:last-child { border-bottom:none;padding-bottom:0; }
+.detail-label { font-size:9px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:var(--text-muted); }
+.detail-value { font-size:13px;color:var(--text-secondary); }
+.detail-value.primary { color:var(--navy);font-weight:500; }
+.detail-value.highlight { color:var(--navy-mid);font-weight:500; }
+.detail-value.success { color:#1A6B3C;font-weight:500; }
+
+.status-bar {
+  padding:12px 20px; border-radius:8px; font-size:13px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  margin-bottom:18px;
+}
+.status-bar.draft { background:rgba(138,155,176,0.1);color:var(--steel);border:1px solid rgba(138,155,176,0.2); }
+.status-bar.scheduled { background:rgba(13,27,42,0.06);color:var(--navy-mid);border:1px solid rgba(13,27,42,0.12); }
+.status-bar.published { background:rgba(26,107,60,0.08);color:#1A6B3C;border:1px solid rgba(26,107,60,0.15); }
+.status-bar.failed { background:rgba(192,57,43,0.07);color:#C0392B;border:1px solid rgba(192,57,43,0.15); }
+
+.platform-row { display:flex;align-items:center;padding:13px 18px;border-bottom:1px solid var(--border);gap:12px; }
+.platform-row:last-child { border-bottom:none; }
+.platform-row:hover { background:var(--cream); }
+
+.image-card {
+  display:flex;align-items:center;gap:16px;
+  padding:14px 18px;border-bottom:1px solid var(--border);
+}
+.image-card:last-child { border-bottom:none; }
+.img-thumb {
+  width:64px;height:64px;border-radius:6px;object-fit:cover;
+  border:1px solid var(--border);background:var(--cream-dark);flex-shrink:0;
+}
+.img-thumb-placeholder {
+  width:64px;height:64px;border-radius:6px;
+  border:1px dashed var(--border);background:var(--cream);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;opacity:0.35;flex-shrink:0;
+}
+
+.perm-item { font-size:11px;font-family:monospace;color:var(--navy-mid);padding:3px 0;border-bottom:1px solid var(--border); }
+.perm-item:last-child { border-bottom:none; }
+
+.publish-checklist { list-style:none;font-size:12px;line-height:1;display:flex;flex-direction:column;gap:8px; }
+.publish-checklist li { display:flex;align-items:center;gap:8px;color:var(--text-muted); }
+.publish-checklist li.ok { color:#1A6B3C; }
+.publish-checklist li.warn { color:#C0392B; }
+.check-icon { font-size:13px;width:18px;text-align:center; }
+</style>
+
+<!-- Status banner -->
+<div class="status-bar {{ post.status }}">
+  <span>
+    {% if post.status == 'draft' %}📝 Draft — this post has not been queued.
+    {% elif post.status == 'scheduled' %}⏱ Scheduled for <strong style="margin-left:4px">{{ post.scheduled_at|date:"M j, Y g:i A" }} ET</strong>
+    {% elif post.status == 'published' %}✓ Published{% if post.published_at %} on <strong style="margin-left:4px">{{ post.published_at|date:"M j, Y g:i A" }} ET</strong>{% endif %}
+    {% elif post.status == 'failed' %}⚠ Publishing failed — check platform errors below.{% endif %}
+  </span>
+  {% if post.status == 'scheduled' or post.status == 'draft' %}
+  <form method="post" action="{% url 'post_publish_now' post.pk %}" style="display:inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-gold btn-sm" onclick="return confirmPublish(this)">▶ Publish Now</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="detail-grid">
+<div>
+
+  <!-- Caption -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header">
+      <h2>Caption</h2>
+      <span class="badge badge-{{ post.status }}">{{ post.get_status_display }}</span>
+    </div>
+    <div class="card-body">
+      <p style="line-height:1.85;white-space:pre-wrap;font-size:13px;color:var(--text-secondary)">{{ post.caption }}</p>
+    </div>
+  </div>
+
+  <!-- Platforms -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header">
+      <h2>Platforms</h2>
+      <a href="{% url 'post_edit' post.pk %}" class="btn btn-secondary btn-sm">+ Add Platform</a>
+    </div>
+    {% if post.platforms.all %}
+    {% for pp in post.platforms.all %}
+    <div class="platform-row">
+      <span style="font-size:18px">
+        {% if pp.social_account.platform == 'instagram' %}📸
+        {% elif pp.social_account.platform == 'facebook' %}📘
+        {% elif pp.social_account.platform == 'twitter' %}🐦
+        {% elif pp.social_account.platform == 'linkedin' %}💼
+        {% else %}📱{% endif %}
+      </span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:var(--navy)">{{ pp.social_account.get_platform_display }}</div>
+        <div style="font-size:11px;color:var(--text-muted)">
+          {{ pp.social_account.organization.name }}
+          {% if pp.social_account.account_name %} · {{ pp.social_account.account_name }}{% endif %}
+        </div>
+      </div>
+      <span class="badge badge-{{ pp.status }}">{{ pp.get_status_display }}</span>
+      {% if pp.error_message %}
+      <span style="font-size:11px;color:#C0392B;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:help"
+            title="{{ pp.error_message }}">⚠ {{ pp.error_message|truncatechars:50 }}</span>
+      {% endif %}
+      {% if pp.published_post_id %}
+      <span style="font-size:10px;font-family:monospace;color:var(--text-muted)" title="Platform Post ID: {{ pp.published_post_id }}">
+        ID: {{ pp.published_post_id|truncatechars:16 }}
+      </span>
+      {% endif %}
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <a href="{% url 'post_platform_edit' pp.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+        <a href="{% url 'post_platform_delete' pp.pk %}" class="btn btn-danger btn-sm">Remove</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="card-body">
+      <div style="text-align:center;padding:16px 0;color:var(--text-muted)">
+        <p style="font-size:12px;margin-bottom:10px">No platforms linked.</p>
+        <a href="{% url 'post_platform_create' %}" class="btn btn-secondary btn-sm">+ Add Platform</a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Media -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Media</h2>
+      <a href="{% url 'post_edit' post.pk %}" class="btn btn-secondary btn-sm">+ Add Image</a>
+    </div>
+    {% if post.images.all %}
+    {% for img in post.images.all %}
+    <div class="image-card">
+      {% if img.image_url %}
+      <img src="{{ img.image_url }}"
+           class="img-thumb"
+           alt="Media {{ img.sort_order }}"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="img-thumb-placeholder" style="display:none">🖼</div>
+      {% else %}
+      <div class="img-thumb-placeholder">🖼</div>
+      {% endif %}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">
+          {{ img.media_type|title }} &middot; Sort order {{ img.sort_order }}
+        </div>
+        <a href="{{ img.image_url }}" target="_blank"
+           style="font-size:12px;color:var(--gold);word-break:break-all;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px"
+           title="{{ img.image_url }}">
+          {{ img.image_url }}
+        </a>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <a href="{% url 'post_edit' post.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+        <a href="{% url 'post_image_delete' img.pk %}" class="btn btn-danger btn-sm">Remove</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="card-body">
+      <div style="text-align:center;padding:16px 0;color:var(--text-muted)">
+        <p style="font-size:12px;margin-bottom:10px">No images attached.</p>
+        {% if post.platforms.all|length > 0 %}
+        {% for pp in post.platforms.all %}{% if pp.social_account.platform == 'instagram' %}
+        <div style="color:#C0392B;font-size:11px;font-weight:500;margin-bottom:10px">⚠ Instagram requires at least one image</div>
+        {% endif %}{% endfor %}
+        {% endif %}
+        <a href="{% url 'post_edit' post.pk %}" class="btn btn-secondary btn-sm">+ Add Image</a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Sidebar -->
+<div>
+  <!-- Details -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><h2>Details</h2></div>
+    <div class="card-body" style="padding:0 22px">
+      <div class="detail-row">
+        <div class="detail-label">Organization</div>
+        <div class="detail-value primary">{{ post.organization.name }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Author</div>
+        <div class="detail-value">{{ post.created_by.email|default:"—" }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Created</div>
+        <div class="detail-value">{{ post.created_at|date:"M j, Y" }}<br>
+          <span style="color:var(--text-muted)">{{ post.created_at|date:"g:i A" }} ET</span></div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Last Updated</div>
+        <div class="detail-value">{{ post.updated_at|date:"M j, Y" }}<br>
+          <span style="color:var(--text-muted)">{{ post.updated_at|date:"g:i A" }} ET</span></div>
+      </div>
+      {% if post.scheduled_at %}
+      <div class="detail-row">
+        <div class="detail-label">Scheduled For</div>
+        <div class="detail-value highlight">{{ post.scheduled_at|date:"M j, Y" }}<br>{{ post.scheduled_at|date:"g:i A" }} ET</div>
+      </div>
+      {% endif %}
+      {% if post.published_at %}
+      <div class="detail-row">
+        <div class="detail-label">Published At</div>
+        <div class="detail-value success">{{ post.published_at|date:"M j, Y" }}<br>{{ post.published_at|date:"g:i A" }} ET</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Pre-publish checklist -->
+  {% if post.status != 'published' %}
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><h2>Publish Checklist</h2></div>
+    <div class="card-body">
+      <ul class="publish-checklist">
+        <li class="{% if post.caption %}ok{% else %}warn{% endif %}">
+          <span class="check-icon">{% if post.caption %}✓{% else %}✕{% endif %}</span>
+          Caption written
+        </li>
+        <li class="{% if post.platforms.all %}ok{% else %}warn{% endif %}">
+          <span class="check-icon">{% if post.platforms.all %}✓{% else %}✕{% endif %}</span>
+          Platform(s) selected
+        </li>
+        {% for pp in post.platforms.all %}
+        {% if pp.social_account.platform == 'instagram' %}
+        <li class="{% if post.images.all %}ok{% else %}warn{% endif %}">
+          <span class="check-icon">{% if post.images.all %}✓{% else %}✕{% endif %}</span>
+          Image attached (Instagram required)
+        </li>
+        {% endif %}
+        {% endfor %}
+        <li class="{% if post.images.all %}ok{% else %}{% endif %}">
+          <span class="check-icon">{% if post.images.all %}✓{% else %}—{% endif %}</span>
+          Media attached
+        </li>
+        {% for pp in post.platforms.all %}
+        <li class="{% if pp.social_account.status == 'active' %}ok{% else %}warn{% endif %}">
+          <span class="check-icon">{% if pp.social_account.status == 'active' %}✓{% else %}⚠{% endif %}</span>
+          {{ pp.social_account.get_platform_display }} account active
+        </li>
+        {% endfor %}
+      </ul>
+      <div style="margin-top:16px">
+        <form method="post" action="{% url 'post_publish_now' post.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-gold" style="width:100%;justify-content:center"
+                  onclick="return confirmPublish(this)">
+            ▶ Publish Now
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- API Permissions -->
+  {% for pp in post.platforms.all %}
+  {% if pp.social_account.platform == 'instagram' or pp.social_account.platform == 'facebook' %}
+  {% if forloop.first %}
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><h2>API Permissions</h2></div>
+    <div class="card-body" style="padding:14px">
+      {% if pp.social_account.platform == 'instagram' %}
+      <div style="font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Content Publishing</div>
+      {% for perm in "instagram_basic,instagram_content_publish,pages_read_engagement,business_management,pages_show_list"|split:"," %}
+      <div class="perm-item">{{ perm }}</div>
+      {% endfor %}
+      <div style="font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin:10px 0 8px">Messaging (optional)</div>
+      {% for perm in "instagram_manage_messages,pages_show_list"|split:"," %}
+      <div class="perm-item">{{ perm }}</div>
+      {% endfor %}
+      {% elif pp.social_account.platform == 'facebook' %}
+      <div style="font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Pages API</div>
+      {% for perm in "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement,business_management"|split:"," %}
+      <div class="perm-item">{{ perm }}</div>
+      {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+  {% endfor %}
+
+  <a href="{% url 'post_delete' post.pk %}" class="btn btn-danger" style="width:100%;justify-content:center">Delete Post</a>
+</div>
+</div>
+
+<script>
+function confirmPublish(btn) {
+  const hasIG = document.querySelector('.platform-row') &&
+    [...document.querySelectorAll('.platform-row')].some(r => r.textContent.includes('Instagram'));
+  const hasMedia = {{ post.images.count }} > 0;
+
+  if (hasIG && !hasMedia) {
+    alert('Instagram requires at least one image. Add media before publishing.');
+    return false;
+  }
+
+  const platforms = [...document.querySelectorAll('.platform-row .badge')]
+    .map(b => b.closest('.platform-row').querySelector('.detail-value, [style*="font-weight:500"]')?.textContent || b.closest('.platform-row').textContent.trim())
+    .filter(Boolean);
+
+  return confirm(`Publish this post now to all pending platforms?\n\nThis will make the post live immediately.`);
+}
+</script>
+{% endblock %}
