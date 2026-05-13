@@ -11,7 +11,15 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-producti
 
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://social.onepulsecrm.com',
+    'https://social.onepulsecrm.com',
+]
+
+CSRF_COOKIE_SECURE = False   # Set True once SSL is confirmed working
+SESSION_COOKIE_SECURE = False  # Set True once SSL is confirmed working
 
 INSTALLED_APPS = [
     'django.contrib.admin',
